@@ -714,6 +714,7 @@ public class Hero extends Char {
 	}
 	
 	private void ready() {
+		if (ready == false) Dungeon.saveTemporary();
 		if (sprite.looping()) sprite.idle();
 		curAction = null;
 		damageInterrupt = true;

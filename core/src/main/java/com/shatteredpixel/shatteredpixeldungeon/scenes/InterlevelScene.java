@@ -69,7 +69,7 @@ public class InterlevelScene extends PixelScene {
 	private static float fadeTime;
 	
 	public enum Mode {
-		DESCEND, ASCEND, CONTINUE, RESURRECT, RETURN, FALL, RESET, NONE
+		DESCEND, ASCEND, CONTINUE, UNDO, RESURRECT, RETURN, FALL, RESET, NONE
 	}
 	public static Mode mode;
 	
@@ -113,6 +113,10 @@ public class InterlevelScene extends PixelScene {
 				break;
 			case CONTINUE:
 				loadingDepth = GamesInProgress.check(GamesInProgress.curSlot).depth;
+				scrollSpeed = 5;
+				break;
+			case UNDO:
+				loadingDepth = GamesInProgress.check(GamesInProgress.TEMP_SLOT).depth;
 				scrollSpeed = 5;
 				break;
 			case DESCEND:
@@ -263,6 +267,9 @@ public class InterlevelScene extends PixelScene {
 								break;
 							case CONTINUE:
 								restore();
+								break;
+							case UNDO:
+								undo();
 								break;
 							case RESURRECT:
 								resurrect();
@@ -437,6 +444,20 @@ public class InterlevelScene extends PixelScene {
 			Dungeon.switchLevel( Dungeon.loadLevel( GamesInProgress.curSlot ), -1 );
 		} else {
 			Level level = Dungeon.loadLevel( GamesInProgress.curSlot );
+			Dungeon.switchLevel( level, Dungeon.hero.pos );
+		}
+	}
+
+	private void undo() throws IOException {
+		
+		Mob.clearHeldAllies();
+
+		Dungeon.loadGame( GamesInProgress.TEMP_SLOT );
+		if (Dungeon.depth == -1) {
+			Dungeon.depth = Statistics.deepestFloor;
+			Dungeon.switchLevel( Dungeon.loadLevel( GamesInProgress.TEMP_SLOT ), -1 );
+		} else {
+			Level level = Dungeon.loadLevel( GamesInProgress.TEMP_SLOT );
 			Dungeon.switchLevel( level, Dungeon.hero.pos );
 		}
 	}

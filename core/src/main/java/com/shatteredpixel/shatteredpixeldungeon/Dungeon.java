@@ -65,9 +65,11 @@ import com.shatteredpixel.shatteredpixeldungeon.levels.rooms.secret.SecretRoom;
 import com.shatteredpixel.shatteredpixeldungeon.levels.rooms.special.SpecialRoom;
 import com.shatteredpixel.shatteredpixeldungeon.messages.Messages;
 import com.shatteredpixel.shatteredpixeldungeon.scenes.GameScene;
+import com.shatteredpixel.shatteredpixeldungeon.scenes.InterlevelScene;
 import com.shatteredpixel.shatteredpixeldungeon.ui.QuickSlotButton;
 import com.shatteredpixel.shatteredpixeldungeon.utils.BArray;
 import com.shatteredpixel.shatteredpixeldungeon.utils.DungeonSeed;
+import com.shatteredpixel.shatteredpixeldungeon.utils.EvictingStack;
 import com.shatteredpixel.shatteredpixeldungeon.windows.WndResurrect;
 import com.watabou.noosa.Game;
 import com.watabou.utils.Bundlable;
@@ -171,7 +173,9 @@ public class Dungeon {
 	public static int version;
 
 	public static long seed;
-	
+
+	public static EvictingStack<Bundle[]> tempState = new EvictingStack<>(2);
+
 	public static void init() {
 
 		version = Game.versionCode;
@@ -452,75 +456,88 @@ public class Dungeon {
 	private static final String QUESTS		= "quests";
 	private static final String BADGES		= "badges";
 	
+	private static Bundle saveGameBundle() {
+		
+		Bundle bundle = new Bundle();
+
+		version = Game.versionCode;
+		bundle.put( VERSION, version );
+		bundle.put( SEED, seed );
+		bundle.put( CHALLENGES, challenges );
+		bundle.put( MOBS_TO_CHAMPION, mobsToChampion );
+		bundle.put( HERO, hero );
+		bundle.put( GOLD, gold );
+		bundle.put( DEPTH, depth );
+
+		for (int d : droppedItems.keyArray()) {
+			bundle.put(Messages.format(DROPPED, d), droppedItems.get(d));
+		}
+		
+		for (int p : portedItems.keyArray()){
+			bundle.put(Messages.format(PORTED, p), portedItems.get(p));
+		}
+
+		quickslot.storePlaceholders( bundle );
+
+		Bundle limDrops = new Bundle();
+		LimitedDrops.store( limDrops );
+		bundle.put ( LIMDROPS, limDrops );
+		
+		int count = 0;
+		int ids[] = new int[chapters.size()];
+		for (Integer id : chapters) {
+			ids[count++] = id;
+		}
+		bundle.put( CHAPTERS, ids );
+		
+		Bundle quests = new Bundle();
+		Ghost		.Quest.storeInBundle( quests );
+		Wandmaker	.Quest.storeInBundle( quests );
+		Blacksmith	.Quest.storeInBundle( quests );
+		Imp			.Quest.storeInBundle( quests );
+		bundle.put( QUESTS, quests );
+		
+		SpecialRoom.storeRoomsInBundle( bundle );
+		SecretRoom.storeRoomsInBundle( bundle );
+		
+		Statistics.storeInBundle( bundle );
+		Notes.storeInBundle( bundle );
+		Generator.storeInBundle( bundle );
+		
+		Scroll.save( bundle );
+		Potion.save( bundle );
+		Ring.save( bundle );
+
+		Actor.storeNextID( bundle );
+		
+		Bundle badges = new Bundle();
+		Badges.saveLocal( badges );
+		bundle.put( BADGES, badges );
+		
+		return bundle;
+	}
+
 	public static void saveGame( int save ) {
 		try {
-			Bundle bundle = new Bundle();
 
-			version = Game.versionCode;
-			bundle.put( VERSION, version );
-			bundle.put( SEED, seed );
-			bundle.put( CHALLENGES, challenges );
-			bundle.put( MOBS_TO_CHAMPION, mobsToChampion );
-			bundle.put( HERO, hero );
-			bundle.put( GOLD, gold );
-			bundle.put( DEPTH, depth );
-
-			for (int d : droppedItems.keyArray()) {
-				bundle.put(Messages.format(DROPPED, d), droppedItems.get(d));
-			}
-			
-			for (int p : portedItems.keyArray()){
-				bundle.put(Messages.format(PORTED, p), portedItems.get(p));
-			}
-
-			quickslot.storePlaceholders( bundle );
-
-			Bundle limDrops = new Bundle();
-			LimitedDrops.store( limDrops );
-			bundle.put ( LIMDROPS, limDrops );
-			
-			int count = 0;
-			int ids[] = new int[chapters.size()];
-			for (Integer id : chapters) {
-				ids[count++] = id;
-			}
-			bundle.put( CHAPTERS, ids );
-			
-			Bundle quests = new Bundle();
-			Ghost		.Quest.storeInBundle( quests );
-			Wandmaker	.Quest.storeInBundle( quests );
-			Blacksmith	.Quest.storeInBundle( quests );
-			Imp			.Quest.storeInBundle( quests );
-			bundle.put( QUESTS, quests );
-			
-			SpecialRoom.storeRoomsInBundle( bundle );
-			SecretRoom.storeRoomsInBundle( bundle );
-			
-			Statistics.storeInBundle( bundle );
-			Notes.storeInBundle( bundle );
-			Generator.storeInBundle( bundle );
-			
-			Scroll.save( bundle );
-			Potion.save( bundle );
-			Ring.save( bundle );
-
-			Actor.storeNextID( bundle );
-			
-			Bundle badges = new Bundle();
-			Badges.saveLocal( badges );
-			bundle.put( BADGES, badges );
-			
+			Bundle bundle = saveGameBundle();
 			FileUtils.bundleToFile( GamesInProgress.gameFile(save), bundle);
-			
+
 		} catch (IOException e) {
 			GamesInProgress.setUnknown( save );
 			ShatteredPixelDungeon.reportException(e);
 		}
 	}
 	
-	public static void saveLevel( int save ) throws IOException {
+	public static Bundle saveLevelBundle() {
 		Bundle bundle = new Bundle();
 		bundle.put( LEVEL, level );
+		
+		return bundle;
+	}
+
+	public static void saveLevel( int save ) throws IOException {
+		Bundle bundle = saveLevelBundle();
 		
 		FileUtils.bundleToFile(GamesInProgress.depthFile( save, depth), bundle);
 	}
@@ -537,13 +554,38 @@ public class Dungeon {
 		}
 	}
 	
+	public static void saveTemporary() {
+		if (hero != null && hero.isAlive()) {
+			
+			Actor.fixTime();
+			Bundle tempGame = saveGameBundle();
+			Bundle tempLevel = saveLevelBundle();
+			
+			tempState.push(new Bundle[]{ tempGame, tempLevel });
+			
+		}
+	}
+
+	public static void loadTemporary() throws IOException {
+		if (tempState.size() >= 2) {
+			InterlevelScene.mode = InterlevelScene.Mode.UNDO;
+			ShatteredPixelDungeon.switchScene(InterlevelScene.class);
+		}
+	}
+	
 	public static void loadGame( int save ) throws IOException {
 		loadGame( save, true );
 	}
 	
 	public static void loadGame( int save, boolean fullLoad ) throws IOException {
 		
-		Bundle bundle = FileUtils.bundleFromFile( GamesInProgress.gameFile( save ) );
+		Bundle bundle;
+		if (save == GamesInProgress.TEMP_SLOT) {
+			Bundle tempGame = tempState.get(tempState.size() - 2)[0];
+			bundle = tempGame;
+		} else {
+			bundle = FileUtils.bundleFromFile( GamesInProgress.gameFile( save ) );
+		}
 
 		version = bundle.getInt( VERSION );
 
@@ -645,7 +687,13 @@ public class Dungeon {
 		Dungeon.level = null;
 		Actor.clear();
 		
-		Bundle bundle = FileUtils.bundleFromFile( GamesInProgress.depthFile( save, depth)) ;
+		Bundle bundle;
+		if (save == GamesInProgress.TEMP_SLOT) {
+			Bundle tempLevel = tempState.get(tempState.size() - 2)[1];
+			bundle = tempLevel;
+		} else {
+			bundle = FileUtils.bundleFromFile( GamesInProgress.depthFile( save, depth)) ;
+		}
 		
 		Level level = (Level)bundle.get( LEVEL );
 		

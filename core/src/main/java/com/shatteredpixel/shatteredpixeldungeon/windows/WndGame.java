@@ -110,6 +110,21 @@ public class WndGame extends Window {
 			curBtn.icon(Icons.get(Icons.RANKINGS));
 		}
 
+		// Undo action
+		if (Dungeon.tempState.size() > 1) {
+			addButton(curBtn = new RedButton( Messages.get(this, "undo") ) {
+				@Override
+				protected void onClick() {
+					try {
+						Dungeon.loadTemporary();
+					} catch (IOException e) {
+						ShatteredPixelDungeon.reportException(e);
+					}
+				}
+			} );
+			curBtn.icon(Icons.get(Icons.UNDO));
+		}
+
 		// Main menu
 		addButton(curBtn = new RedButton( Messages.get(this, "menu") ) {
 			@Override

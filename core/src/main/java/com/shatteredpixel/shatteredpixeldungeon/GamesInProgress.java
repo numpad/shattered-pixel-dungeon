@@ -38,6 +38,9 @@ public class GamesInProgress {
 	
 	public static final int MAX_SLOTS = 4;
 	
+	// hidden/temporary slot used internally
+	public static final int TEMP_SLOT = MAX_SLOTS + 1;
+
 	//null means we have loaded info and it is empty, no entry means unknown.
 	private static HashMap<Integer, Info> slotStates = new HashMap<>();
 	public static int curSlot;

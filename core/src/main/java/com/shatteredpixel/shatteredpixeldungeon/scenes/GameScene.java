@@ -485,6 +485,8 @@ public class GameScene extends PixelScene {
 				GLog.h(Messages.get(this, "warp"));
 			} else if (InterlevelScene.mode == InterlevelScene.Mode.RESURRECT) {
 				GLog.h(Messages.get(this, "resurrect"), Dungeon.depth);
+			} else if (InterlevelScene.mode == InterlevelScene.Mode.UNDO) {
+				GLog.h(Messages.get(this, "undo"));
 			} else {
 				GLog.h(Messages.get(this, "return"), Dungeon.depth);
 			}
